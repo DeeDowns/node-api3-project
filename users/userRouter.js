@@ -4,16 +4,24 @@ const express = require('express');
 //importing user database as Users
 const Users = require('./userDb')
 const Posts = require('../posts/postDb');
-const { del } = require('../data/dbConfig');
+
 
 //setting up router
 const router = express.Router();
 
 
 //POST user
-router.post('/', (req, res) => {
-  const newUser = req.body
-  Users.insert(newUser)
+router.post('/', validateUser, (req, res) => {
+  const { name } = req.body
+
+  // if(!name) {
+  //   return res.status(400).json({ message: 'missing required name field'})
+  // }
+  // if(!req.body) {
+  //   return res.status(400).json({ message: 'missing user data'})
+  // }
+
+  Users.insert({ name })
   .then(user => {
     console.log(user)
     res.status(201).json(user)
@@ -26,7 +34,7 @@ router.post('/', (req, res) => {
 });
 
 //POST add post by user id
-router.post('/:id/posts', (req, res) => {
+router.post('/:id/posts', validateUser, (req, res) => {
   const userPosts = { ...req.body, user_id: req.params.id }
   Posts.insert(userPosts)
   .then(post => {
@@ -53,26 +61,31 @@ router.get('/', (req, res) => {
 });
 
 //GET users by id
-router.get('/:id', (req, res) => {
-  const { id } = req.params
-  Users.getById(id)
-  .then(user => {
-    console.log(user)
-    if(user) {
-    res.status(200).json(user)
-    } else {
-      res.status(404).json({ message: 'user not found'})
-    }
-  })
-  .catch(error => {
-    console.log(error)
-    res.status(500).json({ message: 'error fetching user' })
-  })
+router.get('/:id', validateUserId, (req, res) => {
+  //with middleware this request can be simplified to
+  res.status(200).json(req.user)
+  
+  /****** without middleware ******/
+  // const { id } = req.params
+
+  // Users.getById(id)
+  // .then(user => {
+  //   console.log(user)
+  //   if(user) {
+  //   res.status(200).json(user)
+  //   } else {
+  //     res.status(404).json({ message: 'user not found'})
+  //   }
+  // })
+  // .catch(error => {
+  //   console.log(error)
+  //   res.status(500).json({ message: 'error fetching user' })
+  // })
 
 });
 
 //GET user posts by user id
-router.get('/:id/posts', (req, res) => {
+router.get('/:id/posts', validateUserId, (req, res) => {
   const { id } = req.params
   Users.getUserPosts(id)
   .then(userPosts => {
@@ -89,16 +102,13 @@ router.get('/:id/posts', (req, res) => {
   })
 });
 
-router.delete('/:id', (req, res) => {
+//DELETE user
+router.delete('/:id', validateUserId, (req, res) => {
   const { id } = req.params
   Users.remove(id)
   .then(deleted => {
     console.log(deleted)
-    if(deleted > 0) {
     res.status(200).json({ message: 'user has been removed' })
-    } else {
-      res.status(404).json({ message: 'user could not be found '})
-    }
   }) 
   .catch(error => {
     console.log(error)
@@ -106,27 +116,83 @@ router.delete('/:id', (req, res) => {
   })
 });
 
-router.put('/:id', (req, res) => {
-  // do your magic!
-});
+//PUT edit user
+//validateUserId as middleware 
+router.put('/:id', validateUserId, (req, res) => {
+  const {id } = req.params
+  //destructing name from body; from Users schema
+  const { name } = req.body
+  
+  Users.update(id, { name })
+  .then(updatedUser => {
+    console.log('updated user',updatedUser)
+    if(updatedUser) {
+      Users.getById(id)
+      .then(user => res.status(200).json(user)
+      )
+      .catch(error => {
+        console.log(error)
+        res.status(500).json({ message: 'error getting user' })
+      })
+    }
+  })
+  .catch(error => {
+    console.log(error)
+    res.status(500).json({ message: 'error updating user' })
+  })
+
+  // res.status(404).json({ message: 'please make changes '})
+})
+
 
 //custom middleware
 
+//checking if user with certain id exists
+//if it does move on (next())
+//if it doesnt, throw a 404 error
 function validateUserId(req, res, next) {
-  // do your magic!
-  if(id) {
-    next()
-  } else {
-    res.status(400).json({ message: 'invalid user id'})
-  }
+  const { id } = req.params
+  Users.getById(id) 
+  .then(user => {
+    if(user) {
+      req.user = user 
+      console.log(req.user)
+      next() 
+    } else {
+      res.status(404).json({ message: 'user not found' })
+    }
+  })
 }
 
+
+//checks the body on a request to create a new user
+//if the req.body is missing throw a 400 error
+//if the req.body.name is missing throw a 400 error
 function validateUser(req, res, next) {
-  // do your magic!
+  const { name } = req.body
+
+  if(!name) {
+    return res.status(400).json({ message: 'missing required name field'})
+  }
+  if(!req.body) {
+    return res.status(400).json({ message: 'missing user data'})
+  }
+  
 }
 
 function validatePost(req, res, next) {
-  // do your magic!
+  const { id } = req.params
+  const { text } = req.body
+  Users.getUserPosts(id)
+  .then(userPosts => {
+    if(!{text}) {
+      res.status(400).json({ message: 'missing required text field' })
+    } else if(!res.body) {
+      res.status(400).json({ message: 'missing post data' })
+    } else {
+      next()
+    }
+  })
 }
 
 module.exports = router;
