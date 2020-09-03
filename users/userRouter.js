@@ -14,6 +14,7 @@ const router = express.Router();
 router.post('/', validateUser, (req, res) => {
   const { name } = req.body
 
+  /***** without middleware *****/
   // if(!name) {
   //   return res.status(400).json({ message: 'missing required name field'})
   // }
@@ -34,11 +35,21 @@ router.post('/', validateUser, (req, res) => {
 });
 
 //POST add post by user id
-router.post('/:id/posts', validateUser, (req, res) => {
-  const userPosts = { ...req.body, user_id: req.params.id }
-  Posts.insert(userPosts)
+router.post('/:id/posts', validateUserId, validatePost,  (req, res) => {
+  const { id: user_id } = req.params
+  const { text } = req.body
+  
+  /**** without middleware  *****/
+  // if(!res.body) {
+  //   return res.status(400).json({ message: 'missing post data' })
+  // }
+  // if(!text) {
+  //   return res.status(400).json({ message: 'missing required text field' })
+  // }
+
+  Posts.insert({user_id, text})
   .then(post => {
-    console.log(post)
+    console.log('post poat',post)
     res.status(201).json(post)
   })
   .catch(error => {
@@ -170,29 +181,29 @@ function validateUserId(req, res, next) {
 //if the req.body.name is missing throw a 400 error
 function validateUser(req, res, next) {
   const { name } = req.body
+  console.log('ffd',req.body)
 
-  if(!name) {
-    return res.status(400).json({ message: 'missing required name field'})
-  }
   if(!req.body) {
-    return res.status(400).json({ message: 'missing user data'})
+     res.status(400).json({ message: 'missing user data'})
+  } else if(!name) {
+     res.status(400).json({ message: 'missing required name field'})
+  } else {
+    next()
   }
-  
 }
 
 function validatePost(req, res, next) {
-  const { id } = req.params
+  const { id: user_id } = req.params
   const { text } = req.body
-  Users.getUserPosts(id)
-  .then(userPosts => {
-    if(!{text}) {
-      res.status(400).json({ message: 'missing required text field' })
-    } else if(!res.body) {
-      res.status(400).json({ message: 'missing post data' })
-    } else {
-      next()
-    }
-  })
+  
+  if(!req.body) {
+    return res.status(400).json({ message: 'missing post data' })
+  }
+  if(!text) {
+    return res.status(400).json({ message: 'missing required text field' })
+  }
+
+  next()
 }
 
 module.exports = router;
