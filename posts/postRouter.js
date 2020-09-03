@@ -33,12 +33,42 @@ router.get('/:id', validatePostId, (req, res) => {
   // })
 });
 
-router.delete('/:id', (req, res) => {
-  // do your magic!
+router.delete('/:id', validatePostId, (req, res) => {
+  const { id } = req.params
+  Posts.remove(id)
+  .then(deleted => {
+    console.log(deleted)
+    res.status(200).json({ message: 'post has been removed' })
+  })
+  .catch(error => {
+    console.log(error)
+    res.status(500).json({ message: 'error removing post' })
+  })
 });
 
-router.put('/:id', (req, res) => {
-  // do your magic!
+router.put('/:id', validatePostId, (req, res) => {
+  const { id } = req.params
+  const { text } = req.body
+
+  Posts.update(id, { text })
+  .then(updatedPost => {
+    console.log(updatedPost)
+    if(updatedPost) {
+      Posts.getById(id)
+      .then(post => {
+        console.log(post)
+        res.status(200).json(post)
+      })
+      .catch(error => {
+        console.log(error)
+        res.status(500).json({ message: 'error fetching post' })
+      })
+    }
+  })
+  .catch(error => {
+    console.log(error)
+    res.status(500).json({ message: 'error updating post' })
+  })
 });
 
 // custom middleware
