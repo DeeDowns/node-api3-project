@@ -1,6 +1,6 @@
 // code away
 const server = require('./server.js')
-const port = 6000
+const port = process.env.PORT || 6000
 
 
 server.listen(port, () => {
